@@ -1,0 +1,11 @@
+import streamlit as st
+import pandas as pd
+import numpy as np 
+
+home_page = st.Page('home.py', title='Home')
+input_page = st.Page('input.py', title='Input Pemasukan') #tambahkan icon="___"
+dashboard_page = st.Page('dashboard.py', title='Dashboard') #tambahkan icon="___"
+
+pg = st.navigation([input_page, dashboard_page])
+st.set_page_config(page_title='Self Cash Fow')
+pg.run()
