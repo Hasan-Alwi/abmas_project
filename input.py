@@ -25,6 +25,18 @@ def app():
     if 'pengeluaran' not in st.session_state:
         st.session_state.pengeluaran = []
 
+    with st.container(border=True):
+        st.text('Dalam beberapa literasi disebutkan bahwa pemasukan perlu dibagi menjadi 3 bagian:')
+        col1, col2, col3 = st.columns(3, border=True)
+        with col1:
+            st.metric(label="Kebutuhan", value='50%')
+
+        with col2:
+            st.metric(label="Keinginan", value='30%')
+        
+        with col3:
+            st.metric(label="Tabungan", value='20%')
+
     if st.button('Mulai'):
         st.session_state.awal = True
 
@@ -61,7 +73,10 @@ def app():
         if sisa > 0:
             with st.form('alokasi_form', clear_on_submit=True):
                 kategori = st.selectbox('Jenis Pengeluaran', j_pengeluaran, index=None)
-                duit = st.number_input('Berapa yang Ingin antum Alokasikan?', placeholder='Silahkan di isi ....')
+                duit = st.number_input(
+                    'Berapa yang Ingin antum Alokasikan?',
+                    min_value=0, 
+                    placeholder='Silahkan di isi ....')
                 persen = (duit/uang_saku)*100
                 submit = st.form_submit_button('Tambah')
 
