@@ -1,6 +1,15 @@
 import streamlit as st
 import pandas as pd
 import numpy as np  
+from streamlit_gsheets import GSheetsConnection
+
+# --- Google SPreadsheets---
+# Link
+url = "https://docs.google.com/spreadsheets/d/1pnXUIFCxfEF6-pMHEzjJefcbbFo3gWAlTVyom9_RH1s/edit?usp=sharing"
+# Connection
+conn = st.connection("gsheets", type=GSheetsConnection)
+# Ambil Data Spreadsheet
+df = conn.read(spreadsheet=url, worksheet="0")
 
 j_pengeluaran = ['Makan dan jajan', 
                 'Sekolah', 
