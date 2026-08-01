@@ -1,271 +1,156 @@
 import streamlit as st
-import pandas as pd
-import numpy as np  
-from datetime import date
-from streamlit_gsheets import GSheetsConnection
+from supabase_client import supabase
 
-# --- Google SPreadsheets---
-# Link
-url = "https://docs.google.com/spreadsheets/d/1pnXUIFCxfEF6-pMHEzjJefcbbFo3gWAlTVyom9_RH1s/edit?usp=sharing"
-# Connection
-conn = st.connection("gsheets", type=GSheetsConnection)
-# Ambil Data Spreadsheet
-# df = conn.read(spreadsheet=url, worksheet="DataInput")
+KATEGORI_KOLOM = ["alocation_1", "alocation_2", "investment"]
 
-j_pengeluaran = ['Makan dan jajan', 
-                'Sekolah', 
-                'Donasi (Sedekah)',
-                'Kebutuhan Pribadi',
-                'Acara Pondhok',
-                'Investasi',
-                'Transportasi',
-                'Sosial dan Hiburan',
-                'Olahraga'
-                ]
+st.title("📝 Input Keuangan")
 
-# def app():
-#     st.title('Self Cash Flow Maker')
-
-#     if 'awal' not in st.session_state:
-#         st.session_state.awal = False
-#     if 'alokasi' not in st.session_state:
-#         st.session_state.alokasi = False
-#     if 'nominal_uang' not in st.session_state:
-#         st.session_state.nominal_uang = 0.0
-#     if 'pengeluaran' not in st.session_state:
-#         st.session_state.pengeluaran = []
-
-#     with st.container(border=True):
-#         st.text('Dalam beberapa literasi disebutkan bahwa pemasukan perlu dibagi menjadi 3 bagian:')
-#         col1, col2, col3 = st.columns(3, border=True)
-#         with col1:
-#             st.metric(label="Kebutuhan", value='50%')
-
-#         with col2:
-#             st.metric(label="Keinginan", value='30%')
-        
-#         with col3:
-#             st.metric(label="Tabungan", value='20%')
-
-#     if st.button('Mulai'):
-#         st.session_state.awal = True
-
-#     if st.session_state.awal:
-
-#         uang_input = st.number_input(
-#             'Masukkan nominal uang saku (Rp.)',
-#             min_value=0,
-#             step=1000 
-#             # format="%.0f"
-#         )
-
-#         if uang_input > 0:
-#             st.success('Klik tombol untuk menyimpan dan lanjut')
-
-#             if st.button('Simpan & Lanjut'):
-#                 st.session_state.nominal_uang = uang_input
-#                 st.session_state.awal = False
-#                 st.session_state.alokasi = True
-#                 st.rerun()
-#         else:
-#             st.info('Silakan isi nominal uang terlebih dahulu')
-
-#     if st.session_state.alokasi:
-
-#         uang_saku = st.session_state.nominal_uang
-#         st.write(f'Mari alokasikan Rp {uang_saku:,.0f}')
-
-#         terpakai = sum(item['nominal'] for item in st.session_state.pengeluaran)
-#         sisa = uang_saku - terpakai
-
-#         st.info(f'Sisa uang: Rp {sisa:,.0f}')
-
-#         if sisa > 0:
-#             with st.form('alokasi_form', clear_on_submit=True):
-#                 kategori = st.selectbox('Jenis Pengeluaran', j_pengeluaran, index=None)
-#                 duit = st.number_input(
-#                     'Berapa yang Ingin antum Alokasikan?',
-#                     min_value=0, 
-#                     placeholder='Silahkan di isi ....')
-#                 persen = (duit/uang_saku)*100
-#                 submit = st.form_submit_button('Tambah')
-
-#                 if submit:
-
-#                     if kategori is None or duit is None:
-#                         st.warning("Harap isi semua field")
-#                     else:
-#                         # nominal_hitung = (persen / 100) * sisa
-
-#                         if duit > sisa:
-#                             st.error("Melebihi sisa uang!")
-#                         else:
-#                             st.session_state.pengeluaran.append({
-#                                 "Kategori": kategori,
-#                                 "Persentase": f"{persen}%",
-#                                 "nominal": duit
-#                             })
-
-#                             st.rerun()
-#         else:
-#             st.success("Semua uang sudah teralokasi!")
-
-#         if st.session_state.pengeluaran:
-#             df = pd.DataFrame(st.session_state.pengeluaran)
-#             st.subheader("Data Pengeluaran")
-#             st.dataframe(df)
-#             st.bar_chart(df.set_index("Kategori")["nominal"])
-
-# if __name__ == '__main__':
-#     app()
-
-def simpan_ke_spreadsheet(uang_saku, daftar_pengeluaran):
-    """
-    Mengubah daftar alokasi (list of dict di session_state.pengeluaran)
-    menjadi satu row, lalu append ke worksheet DataInput.
-    """
-    # Inisialisasi semua kategori dengan nilai 0
-    row_kategori = {kategori: 0 for kategori in j_pengeluaran}
-
-    # Akumulasi nominal per kategori (kalau ada kategori yang diisi lebih dari sekali)
-    for item in daftar_pengeluaran:
-        kategori = item["Kategori"]
-        nominal = item["nominal"]
-        row_kategori[kategori] = row_kategori.get(kategori, 0) + nominal
-
-    # Susun row final: Tanggal, Pendapatan, lalu kolom-kolom kategori
-    row_final = {
-        "Tanggal": date.today().strftime("%Y-%m-%d"),
-        "Pemasukan": uang_saku,
-        **row_kategori
-    }
-
-    df_baru = pd.DataFrame([row_final])
-
-    # Baca data lama dengan ttl=0 supaya tidak kena cache
-    try:
-        df_lama = conn.read(spreadsheet=url, worksheet="DataInput", ttl=0)
-        df_lama = df_lama.dropna(how="all")
-    except Exception:
-        df_lama = pd.DataFrame(columns=row_final.keys())
-
-    df_gabungan = pd.concat([df_lama, df_baru], ignore_index=True)
-
-    conn.update(spreadsheet=url, worksheet="DataInput", data=df_gabungan)
+# Catatan: kolom "date" TIDAK diisi dari kode ini — dibiarkan kosong
+# supaya Postgres otomatis mengisi dengan default now().
 
 
-def app():
-    st.title('Self Cash Flow Maker')
+# ------------------------------------------------------------
+# State management untuk alur 2 langkah
+# ------------------------------------------------------------
+if "step" not in st.session_state:
+    st.session_state.step = 1
+if "pemasukan_data" not in st.session_state:
+    st.session_state.pemasukan_data = {}
 
-    if 'awal' not in st.session_state:
-        st.session_state.awal = False
-    if 'alokasi' not in st.session_state:
-        st.session_state.alokasi = False
-    if 'nominal_uang' not in st.session_state:
-        st.session_state.nominal_uang = 0.0
-    if 'pengeluaran' not in st.session_state:
-        st.session_state.pengeluaran = []
-    if 'tersimpan' not in st.session_state:
-        st.session_state.tersimpan = False
 
-    with st.container(border=True):
-        st.text('Dalam beberapa literasi disebutkan bahwa pemasukan perlu dibagi menjadi 3 bagian:')
-        col1, col2, col3 = st.columns(3, border=True)
-        with col1:
-            st.metric(label="Kebutuhan", value='50%')
+def reset_flow():
+    st.session_state.step = 1
+    st.session_state.pemasukan_data = {}
 
-        with col2:
-            st.metric(label="Keinginan", value='30%')
-        
-        with col3:
-            st.metric(label="Tabungan", value='20%')
 
-    if st.button('Mulai'):
-        st.session_state.awal = True
-        st.session_state.tersimpan = False
+st.caption(f"Langkah {st.session_state.step} dari 2")
+st.progress(st.session_state.step / 2)
 
-    if st.session_state.awal:
+# ============================================================
+# LANGKAH 1 — Input Pemasukan
+# ============================================================
+if st.session_state.step == 1:
+    st.subheader("1️⃣ Masukkan Pemasukan Kamu")
 
-        uang_input = st.number_input(
-            'Masukkan nominal uang saku (Rp.)',
+    with st.form("form_pemasukan"):
+        jumlah = st.number_input(
+            "Jumlah Pemasukan (Rp)",
             min_value=0,
-            step=1000 
+            step=1000,
+            value=st.session_state.pemasukan_data.get("money", 0),
         )
+        # sumber = st.text_input(
+        #     "Sumber (misal: uang saku, gaji part-time, bonus)",
+        #     value=st.session_state.pemasukan_data.get("sumber", ""),
+        # )
+        # catatan = st.text_area(
+        #     "Catatan (opsional)",
+        #     value=st.session_state.pemasukan_data.get("catatan", ""),
+        # )
 
-        if uang_input > 0:
-            st.success('Klik tombol untuk menyimpan dan lanjut')
+        lanjut = st.form_submit_button("Lanjut ke Alokasi →")
 
-            if st.button('Simpan & Lanjut'):
-                st.session_state.nominal_uang = uang_input
-                st.session_state.awal = False
-                st.session_state.alokasi = True
+        if lanjut:
+            if jumlah <= 0:
+                st.warning("Jumlah harus lebih dari 0.")
+            else:
+                st.session_state.pemasukan_data = {
+                    "money": jumlah,
+                    # "sumber": sumber,
+                    # "catatan": catatan,
+                }
+                st.session_state.step = 2
                 st.rerun()
+
+# ============================================================
+# LANGKAH 2 — Alokasi Pemasukan ke Kategori
+# ============================================================
+elif st.session_state.step == 2:
+    data = st.session_state.pemasukan_data
+    total = data["money"]
+
+    st.subheader("2️⃣ Alokasikan Pemasukan Kamu")
+    st.info(f"Total pemasukan yang akan dialokasikan: **Rp {total:,.0f}**")
+
+    with st.form("form_alokasi"):
+        alokasi_input = {}
+        for kat in KATEGORI_KOLOM:
+            alokasi_input[kat] = st.number_input(
+                f"{kat.capitalize()} (Rp)",
+                min_value=0,
+                step=1000,
+                key=f"alokasi_{kat}",
+            )
+
+        total_alokasi = sum(alokasi_input.values())
+        sisa = total - total_alokasi
+
+        if sisa < 0:
+            st.error(f"Alokasi melebihi pemasukan sebesar Rp {abs(sisa):,.0f}")
+        elif sisa > 0:
+            st.warning(f"Masih ada sisa belum dialokasikan: Rp {sisa:,.0f}")
         else:
-            st.info('Silakan isi nominal uang terlebih dahulu')
+            st.success("Alokasi sudah pas dengan total pemasukan ✅")
 
-    if st.session_state.alokasi:
+        col_back, col_save = st.columns(2)
+        kembali = col_back.form_submit_button("← Kembali / Edit Pemasukan")
+        simpan = col_save.form_submit_button("💾 Simpan Semua")
 
-        uang_saku = st.session_state.nominal_uang
-        st.write(f'Mari alokasikan Rp {uang_saku:,.0f}')
+        if kembali:
+            st.session_state.step = 1
+            st.rerun()
 
-        terpakai = sum(item['nominal'] for item in st.session_state.pengeluaran)
-        sisa = uang_saku - terpakai
-
-        st.info(f'Sisa uang: Rp {sisa:,.0f}')
-
-        if sisa > 0:
-            with st.form('alokasi_form', clear_on_submit=True):
-                kategori = st.selectbox('Jenis Pengeluaran', j_pengeluaran, index=None)
-                duit = st.number_input(
-                    'Berapa yang Ingin antum Alokasikan?',
-                    min_value=0, 
-                    placeholder='Silahkan di isi ....')
-                persen = (duit/uang_saku)*100
-                submit = st.form_submit_button('Tambah')
-
-                if submit:
-
-                    if kategori is None or duit is None:
-                        st.warning("Harap isi semua field")
-                    else:
-                        if duit > sisa:
-                            st.error("Melebihi sisa uang!")
-                        else:
-                            st.session_state.pengeluaran.append({
-                                "Kategori": kategori,
-                                "Persentase": f"{persen}%",
-                                "nominal": duit
-                            })
-
-                            st.rerun()
-        else:
-            st.success("Semua uang sudah teralokasi!")
-
-        if st.session_state.pengeluaran:
-            df_alokasi = pd.DataFrame(st.session_state.pengeluaran)
-            st.subheader("Data Pengeluaran")
-            st.dataframe(df_alokasi)
-            st.bar_chart(df_alokasi.set_index("Kategori")["nominal"])
-
-            st.divider()
-
-            if st.button("Simpan ke Spreadsheet"):
+        if simpan:
+            if total_alokasi != total:
+                st.error("Total alokasi harus sama persis dengan total pemasukan sebelum disimpan.")
+            else:
                 try:
-                    simpan_ke_spreadsheet(uang_saku, st.session_state.pengeluaran)
-                    st.session_state.tersimpan = True
-                    st.success("Data berhasil tersimpan ke Google Sheets!")
+                    # Gabungkan pemasukan + alokasi jadi SATU baris di tabel user_data.
+                    # Kolom "date" sengaja TIDAK disertakan -> otomatis diisi now() oleh Supabase.
+                    row = {
+                        "money": data["money"],
+                        # "sumber": data["sumber"],
+                        # "catatan": data["catatan"],
+                    }
+                    row.update(alokasi_input)
+
+                    supabase.table("user_data").insert(row).execute()
+
+                    st.success("Pemasukan & alokasi berhasil disimpan!")
+                    reset_flow()
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Gagal menyimpan data: {e}")
 
-        if st.session_state.tersimpan:
-            if st.button("Mulai Sesi Baru"):
-                st.session_state.awal = False
-                st.session_state.alokasi = False
-                st.session_state.nominal_uang = 0.0
-                st.session_state.pengeluaran = []
-                st.session_state.tersimpan = False
+    if st.button("🔄 Mulai Ulang dari Awal"):
+        reset_flow()
+        st.rerun()
+
+# ============================================================
+# Kelola Data — lihat & hapus data yang sudah tersimpan
+# ============================================================
+st.divider()
+st.subheader("Kelola Data")
+
+try:
+    response = (
+        supabase.table("user_data")
+        .select("*")
+        .order("date", desc=True)
+        .execute()
+    )
+    data_list = response.data
+
+    if data_list:
+        for row in data_list:
+            col1, col2, col3, col4 = st.columns([2, 2, 3, 1])
+            col1.write(row.get("date", ""))
+            col2.write(f"Rp {row['money']:,.0f}")
+            # col3.write(row.get("sumber", ""))
+            if col4.button("🗑️", key=f"del_{row['id_input']}"):
+                supabase.table("user_data").delete().eq("id_input", row["id_input"]).execute()
                 st.rerun()
-
-
-if __name__ == '__main__':
-    app()
+    else:
+        st.info("Belum ada data.")
+except Exception as e:
+    st.error(f"Gagal mengambil data: {e}")

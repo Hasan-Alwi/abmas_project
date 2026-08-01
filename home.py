@@ -1,23 +1,33 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 
-st.title('🗂️SELF CASH FLOW🗂️')
+st.title("💰 Self Cash Flow")
+st.subheader("Kelola keuanganmu, raih mimpimu.")
 
-with st.container(border=False):
-    st.text('Selamat datang di website SELF CASH FLOW, web ini merupakan web pendukung untuk memanajamen keuangan teman-teman kedepannya.')
+st.write(
+    "\"Sedikit demi sedikit, lama-lama menjadi bukit.\" "
+    "Setiap rupiah yang kamu catat dan alokasikan hari ini "
+    "adalah langkah kecil menuju kebebasan finansial di masa depan."
+)
 
-with st.container(border=False):
-    st.text('Mari mulai menjadi pribadi yang peduli keuangan')
+st.divider()
+st.markdown("### Mau mulai dari mana?")
 
-    col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
-    with col1:
-        if st.button('Mulai Input'):
-            st.switch_page('input.py')
-    with col2:
-        if st.button('lihat Dashboard'):
-            st.switch_page('dashboard.py.py')
-    with col3:
-        if st.button('LIhat Video'):
-            st.switch_page('input.py')
+with col1:
+    st.markdown("#### 📝 Input Keuangan")
+    st.caption("Catat pemasukan & alokasikan ke kategori kamu.")
+    st.page_link("input.py", label="Buka Input Keuangan", icon="📝")
+
+    st.markdown("#### 📚 Financial Education Syariah")
+    st.caption("Video edukasi seputar keuangan syariah.")
+    st.button("Segera Hadir", key="btn_edukasi", disabled=True)
+
+with col2:
+    st.markdown("#### 📊 Dashboard")
+    st.caption("Pantau perkembangan keuanganmu lewat grafik.")
+    st.page_link("dashboard.py", label="Buka Dashboard", icon="📊")
+
+    st.markdown("#### 🧮 Budget Example")
+    st.caption("Contoh alokasi anggaran yang bisa jadi acuan.")
+    st.button("Segera Hadir", key="btn_budget", disabled=True)
