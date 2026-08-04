@@ -4,16 +4,15 @@ import pandas as pd
 import streamlit as st
 
 from utils.theme import inject_css, sidebar_brand, navbar, hero, info_card
+from utils.auth import require_login, sidebar_user
 from utils.dashboard_view import siapkan_df, render_dashboard
 
-# ------------------------------------------------------------
-# Tema (sama dengan halaman lain)
-# ------------------------------------------------------------
 inject_css()
-siswa = require_login() 
+siswa = require_login()
 
 with st.sidebar:
     sidebar_brand(active="Perencanaan Anggaran")
+    sidebar_user()
 
 navbar(active="Budget Example")
 
