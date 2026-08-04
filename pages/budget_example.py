@@ -10,6 +10,7 @@ from utils.dashboard_view import siapkan_df, render_dashboard
 # Tema (sama dengan halaman lain)
 # ------------------------------------------------------------
 inject_css()
+siswa = require_login() 
 
 with st.sidebar:
     sidebar_brand(active="Perencanaan Anggaran")
