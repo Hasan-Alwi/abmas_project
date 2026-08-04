@@ -34,7 +34,7 @@ load_css()
 # GERBANG LOGIN  (NIS + Username, sumber akun: CSV)
 # Baris di bawah ini menghentikan halaman selama siswa belum masuk.
 # ----------------------------------------------------------------------------
-authenticator = require_login()
+siswa = require_login()
 
 top_nav("/")
 
@@ -68,7 +68,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # Kartu identitas siswa + tombol keluar
-sidebar_user(authenticator)
+sidebar_user()
 
 
 # ----------------------------------------------------------------------------
