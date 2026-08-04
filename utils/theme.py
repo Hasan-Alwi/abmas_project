@@ -47,12 +47,14 @@ PALETTE = ["#14532D", "#1B6B45", "#2E8B5A", "#C99A2E", "#A97C3F", "#E08A3C", "#5
 
 FONT = "Poppins"
 
+# (label, ikon, path file halaman relatif terhadap file entrypoint)
+# Sesuaikan path bila struktur folder berbeda.
 NAV_ITEMS = [
-    ("Beranda", "🏠", "home"),
-    ("Input", "🟨", "input_user"),
-    ("Dashboard", "📊", "dashboard"),
-    ("Budget Example", "🎯", "budget_example"),
-    ("Edukasi", "📖", "edukasi"),
+    ("Beranda", "🏠", "home.py"),
+    ("Input", "🟨", "pages/input_user.py"),
+    ("Dashboard", "📊", "pages/dashboard.py"),
+    ("Budget Example", "🎯", "pages/budget_example.py"),
+    ("Edukasi", "📖", "pages/edukasi.py"),
 ]
 
 SIDEBAR_MENU = [
@@ -102,28 +104,25 @@ section[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
 .ks-menu__item--active { background: var(--green-600); color: #fff; font-weight: 600; }
 
 /* ---------- navbar ---------- */
-.ks-nav {
-  display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 10px 16px; margin-bottom: 18px;
-  scrollbar-width: none; -ms-overflow-style: none;
+.ks-nav__brand { color: var(--green-700); font-weight: 700; font-size: 15px;
+                 white-space: nowrap; padding-top: 7px; }
+.ks-nav__tab--active {
+  display: inline-flex; gap: 6px; align-items: center; white-space: nowrap;
+  background: var(--green-700); color: #FFFFFF; font-weight: 600;
+  padding: 8px 14px; border-radius: 999px; font-size: 13.5px;
 }
-.ks-nav::-webkit-scrollbar { display: none; }
-.ks-nav__brand { color: var(--green-700); font-weight: 700; font-size: 15px; white-space: nowrap; flex: none; margin-right: 4px; }
-.ks-nav__rule { width: 1px; height: 22px; background: var(--border); flex: none; margin-right: 4px; }
-.ks-nav a.ks-nav__tab,
-[data-testid="stMarkdownContainer"] .ks-nav a.ks-nav__tab {
-  display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; flex: none;
-  padding: 8px 14px; border-radius: 999px;
-  font-size: 13.5px; font-weight: 500;
-  color: var(--muted) !important; text-decoration: none !important; border-bottom: none !important;
+/* tab non-aktif = st.page_link, dinavigasi router Streamlit (sesi tidak hilang) */
+a[data-testid="stPageLink-NavLink"] {
+  border-radius: 999px !important; padding: 8px 14px !important;
+  justify-content: center; white-space: nowrap;
 }
-.ks-nav a.ks-nav__tab:hover { background: var(--green-50); color: var(--green-700) !important; text-decoration: none !important; }
-.ks-nav a.ks-nav__tab--active,
-.ks-nav a.ks-nav__tab--active:hover,
-[data-testid="stMarkdownContainer"] .ks-nav a.ks-nav__tab--active {
-  background: var(--green-700); color: #FFFFFF !important; font-weight: 600;
+a[data-testid="stPageLink-NavLink"] p {
+  font-size: 13.5px !important; font-weight: 500 !important; color: var(--muted) !important;
+  margin: 0 !important;
 }
+a[data-testid="stPageLink-NavLink"]:hover { background: var(--green-50) !important; }
+a[data-testid="stPageLink-NavLink"]:hover p { color: var(--green-700) !important; }
+.ks-navbox div[data-testid="stHorizontalBlock"] { gap: 4px; align-items: center; }
 
 /* ---------- hero ---------- */
 .ks-hero {
@@ -244,19 +243,30 @@ def sidebar_brand(active: str = "Beranda") -> None:
 
 
 def navbar(active: str = "Beranda") -> None:
-    tabs = "".join(
-        '<a class="ks-nav__tab'
-        + (" ks-nav__tab--active" if label == active else "")
-        + '" href="/' + slug + '" target="_self"><span>'
-        + icon + "</span>" + label + "</a>"
-        for label, icon, slug in NAV_ITEMS
-    )
-    st.markdown(
-        '<div class="ks-nav">'
-        '<span class="ks-nav__brand">🌙 Keuangan Syariah</span>'
-        '<span class="ks-nav__rule"></span>' + tabs + "</div>",
-        unsafe_allow_html=True,
-    )
+    """Navigasi utama.
+
+    Memakai st.page_link, bukan tag <a>, supaya perpindahan halaman ditangani
+    router Streamlit. Tautan <a> biasa memuat ulang browser sehingga
+    st.session_state (termasuk status login) ikut terhapus.
+    """
+    st.markdown('<div class="ks-navbox">', unsafe_allow_html=True)
+    with st.container(border=True):
+        lebar = [2.1] + [len(label) * 0.13 + 0.62 for label, _, _ in NAV_ITEMS]
+        kolom = st.columns(lebar, vertical_alignment="center")
+
+        kolom[0].markdown(
+            '<span class="ks-nav__brand">🌙 Keuangan Syariah</span>', unsafe_allow_html=True
+        )
+        for kotak, (label, ikon, path) in zip(kolom[1:], NAV_ITEMS):
+            with kotak:
+                if label == active:
+                    st.markdown(
+                        '<span class="ks-nav__tab--active">' + ikon + " " + label + "</span>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.page_link(path, label=label, icon=ikon)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def hero(eyebrow: str, title: str, lead: str, chips=None) -> None:

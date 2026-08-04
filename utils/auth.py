@@ -5,6 +5,8 @@ Autentikasi Dashboard Keuangan Syariah — SMA Integral Ar-Rohmah, Malang.
 Akun dibaca dari tabel Supabase `user_account` (kolom: nis, username).
 Kolom lain seperti `password` diabaikan.
 
+Username berupa NAMA ASLI siswa, jadi spasi diperbolehkan.
+
 Cara pakai di setiap halaman (home.py dan semua file di pages/):
 
     import streamlit as st
@@ -108,7 +110,12 @@ def _kepala_login() -> None:
 # ----------------------------------------------------------------------------
 # AKSES DATABASE
 # ----------------------------------------------------------------------------
-def _nilai_nis(nis: str):
+def _rapikan_nama(teks) -> str:
+    """Buang spasi di tepi dan rapatkan spasi ganda di tengah nama."""
+    return " ".join(str(teks or "").split())
+
+
+def _nilai_nis(nis) -> object:
     """Samakan tipe dengan kolom di database."""
     nis = str(nis).strip()
     if NIS_BERTIPE_ANGKA and nis.isdigit():
@@ -130,17 +137,21 @@ def _tabel_terbaca() -> bool:
 
 
 def _cek_masuk(username: str, nis: str):
-    """Cocokkan username & NIS. Username tidak peka huruf besar/kecil."""
+    """Cocokkan username & NIS.
+
+    Perbandingan mengabaikan huruf besar/kecil dan spasi berlebih, sehingga
+    'lionel  messi' tetap cocok dengan 'Lionel Messi' di database.
+    """
     akun = _cari_akun(KOLOM_NIS, _nilai_nis(nis))
     if not akun:
         return None
-    tersimpan = str(akun.get(KOLOM_USERNAME, "")).strip().lower()
-    return akun if tersimpan == username.strip().lower() else None
+    tersimpan = _rapikan_nama(akun.get(KOLOM_USERNAME)).lower()
+    return akun if tersimpan == _rapikan_nama(username).lower() else None
 
 
 def _buat_akun(username: str, nis: str) -> None:
     supabase.table(TABEL_AKUN).insert(
-        {KOLOM_NIS: _nilai_nis(nis), KOLOM_USERNAME: username.strip()}
+        {KOLOM_NIS: _nilai_nis(nis), KOLOM_USERNAME: _rapikan_nama(username)}
     ).execute()
 
 
@@ -151,10 +162,6 @@ def _simpan_sesi(akun: dict) -> None:
         "username": str(akun.get(KOLOM_USERNAME, "")),
         "nama": str(akun.get(KOLOM_USERNAME, "")),
     }
-
-
-def _ke_mode(mode: str) -> None:
-    st.query_params["mode"] = mode
 
 
 # ----------------------------------------------------------------------------
@@ -173,7 +180,7 @@ def _form_masuk() -> None:
         masuk = st.form_submit_button("Masuk")
 
     if masuk:
-        if not username.strip() or not nis.strip():
+        if not _rapikan_nama(username) or not nis.strip():
             st.warning("Username dan NIS harus diisi.")
         else:
             try:
@@ -188,8 +195,14 @@ def _form_masuk() -> None:
                 elif not _tabel_terbaca():
                     st.error(
                         f"Tabel **{TABEL_AKUN}** tidak bisa dibaca. Kemungkinan besar RLS "
-                        "aktif tanpa policy SELECT. Jalankan perintah SQL yang ada di "
-                        "catatan bawah halaman ini."
+                        "aktif tanpa policy SELECT."
+                    )
+                    st.code(
+                        f'create policy "baca akun" on {TABEL_AKUN}\n'
+                        "  for select using (true);\n"
+                        f'create policy "buat akun" on {TABEL_AKUN}\n'
+                        "  for insert with check (true);",
+                        language="sql",
                     )
                 else:
                     st.error("Username atau NIS belum cocok. Periksa kembali penulisannya.")
@@ -204,22 +217,21 @@ def _form_masuk() -> None:
 def _form_daftar() -> None:
     st.markdown(
         '<div class="auth-judul">Daftar Akun Baru</div>'
-        '<div class="auth-sub">Cukup isi Username dan NIS. Keduanya dipakai untuk masuk.</div>',
+        '<div class="auth-sub">Isi nama lengkapmu sebagai Username, lalu NIS. '
+        "Keduanya dipakai untuk masuk.</div>",
         unsafe_allow_html=True,
     )
 
     with st.form("form_daftar"):
-        username = st.text_input("Username", placeholder="Pilih nama pengguna, tanpa spasi")
+        username = st.text_input("Username", placeholder="Nama lengkapmu, contoh: Fulan bin Abdullah")
         nis = st.text_input("NIS", placeholder="Nomor Induk Siswa")
         daftar = st.form_submit_button("Daftar Sekarang")
 
     if daftar:
-        username, nis = username.strip(), nis.strip()
+        username, nis = _rapikan_nama(username), nis.strip()
 
         if not username or not nis:
             st.warning("Username dan NIS wajib diisi.")
-        elif " " in username:
-            st.warning("Username tidak boleh mengandung spasi.")
         elif NIS_BERTIPE_ANGKA and not nis.isdigit():
             st.warning("NIS hanya boleh berisi angka.")
         else:
@@ -227,7 +239,7 @@ def _form_daftar() -> None:
                 if _cari_akun(KOLOM_NIS, _nilai_nis(nis)):
                     st.error("NIS ini sudah terdaftar. Silakan masuk memakai akun tersebut.")
                 elif _cari_akun(KOLOM_USERNAME, username):
-                    st.error("Username ini sudah dipakai. Coba nama pengguna lain.")
+                    st.error("Nama ini sudah terdaftar. Hubungi guru pembimbing bila memang kembar.")
                 else:
                     _buat_akun(username, nis)
                     st.success("Akun berhasil dibuat. Silakan masuk dengan Username dan NIS tadi.")
