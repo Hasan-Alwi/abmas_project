@@ -1,14 +1,20 @@
 import streamlit as st
 from supabase_client import supabase
 from utils.theme import inject_css, sidebar_brand, navbar, hero, alloc_card, section_title
+from utils.auth import require_login, sidebar_user
 
 # ------------------------------------------------------------
-# Tema (sama dengan halaman Beranda) — tampilan saja
+# Tema + gerbang login
+# require_login() menghentikan halaman selama siswa belum masuk,
+# sekaligus menyediakan identitas yang dipakai saat menyimpan data.
 # ------------------------------------------------------------
 inject_css()
 
+siswa = require_login()
+
 with st.sidebar:
     sidebar_brand(active="Pencatatan Keuangan")
+    sidebar_user()
 
 navbar(active="Input")
 
@@ -27,7 +33,27 @@ KATEGORI_KOLOM = list(KATEGORI_ALOKASI.keys())
 
 KOLOM_LAIN = "lain-lain"          # kolom yang butuh keterangan
 KOLOM_KETERANGAN = "keterangan"   # kolom teks penjelasan "Lain-lain"
+
+# Kolom identitas pemilik catatan di tabel user_data
+KOLOM_NIS_SISWA = "nis_siswa"
+KOLOM_USERNAME = "username"
+NIS_BERTIPE_ANGKA = True          # kolom nis_siswa bertipe int8
+
 HALAMAN_DASHBOARD = "pages/dashboard.py"  # sesuaikan jika letak file berbeda
+
+# ------------------------------------------------------------
+# Identitas siswa yang sedang masuk — ikut disimpan di setiap catatan
+# ------------------------------------------------------------
+NIS_SISWA = str(siswa.get("nis", "")).strip()
+USERNAME_SISWA = str(siswa.get("username", "")).strip()
+
+
+def nis_nilai():
+    """Samakan tipe NIS dengan kolom di database."""
+    if NIS_BERTIPE_ANGKA and NIS_SISWA.isdigit():
+        return int(NIS_SISWA)
+    return NIS_SISWA
+
 
 # Hanya untuk ditampilkan sebagai contoh teori — tidak dipakai saat menyimpan
 CONTOH_PEMBAGIAN = [
@@ -95,10 +121,7 @@ if st.session_state.get("baru_disimpan"):
     st.success("Pemasukan & alokasi berhasil disimpan!")
     if st.button("📊 Lanjut ke Dashboard"):
         st.session_state.baru_disimpan = False
-        try:
-            st.switch_page(HALAMAN_DASHBOARD)
-        except Exception:
-            st.link_button("Buka Dashboard", "/dashboard")
+        st.switch_page(HALAMAN_DASHBOARD)
 
 st.caption(f"Langkah {st.session_state.step} dari 2")
 st.progress(st.session_state.step / 2)
@@ -116,14 +139,6 @@ if st.session_state.step == 1:
             step=1000,
             value=st.session_state.pemasukan_data.get("money", 0),
         )
-        # sumber = st.text_input(
-        #     "Sumber (misal: uang saku, gaji part-time, bonus)",
-        #     value=st.session_state.pemasukan_data.get("sumber", ""),
-        # )
-        # catatan = st.text_area(
-        #     "Catatan (opsional)",
-        #     value=st.session_state.pemasukan_data.get("catatan", ""),
-        # )
 
         lanjut = st.form_submit_button("Lanjut ke Alokasi →")
 
@@ -131,11 +146,7 @@ if st.session_state.step == 1:
             if jumlah <= 0:
                 st.warning("Jumlah harus lebih dari 0.")
             else:
-                st.session_state.pemasukan_data = {
-                    "money": jumlah,
-                    # "sumber": sumber,
-                    # "catatan": catatan,
-                }
+                st.session_state.pemasukan_data = {"money": jumlah}
                 st.session_state.step = 2
                 st.session_state.baru_disimpan = False
                 st.rerun()
@@ -192,14 +203,16 @@ elif st.session_state.step == 2:
                 st.error("Total alokasi harus sama persis dengan total pemasukan sebelum disimpan.")
             elif alokasi_input[KOLOM_LAIN] > 0 and not keterangan.strip():
                 st.error("Isi dulu keterangan untuk pos Lain-lain sebelum menyimpan.")
+            elif not NIS_SISWA:
+                st.error("Identitas siswa tidak terbaca. Coba keluar lalu masuk kembali.")
             else:
                 try:
-                    # Gabungkan pemasukan + alokasi jadi SATU baris di tabel user_data.
-                    # Kolom "date" sengaja TIDAK disertakan -> otomatis diisi now() oleh Supabase.
+                    # Gabungkan identitas + pemasukan + alokasi jadi SATU baris.
+                    # Kolom "date" sengaja TIDAK disertakan -> diisi now() oleh Supabase.
                     row = {
+                        KOLOM_NIS_SISWA: nis_nilai(),
+                        KOLOM_USERNAME: USERNAME_SISWA,
                         "money": data["money"],
-                        # "sumber": data["sumber"],
-                        # "catatan": data["catatan"],
                     }
                     row.update(alokasi_input)
                     row[KOLOM_KETERANGAN] = (
@@ -219,15 +232,17 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # ============================================================
-# Kelola Data — lihat & hapus data yang sudah tersimpan
+# Kelola Data — hanya catatan milik siswa yang sedang masuk
 # ============================================================
 st.divider()
 section_title("Kelola Data")
+st.caption(f"Catatan atas nama {USERNAME_SISWA} · NIS {NIS_SISWA}")
 
 try:
     response = (
         supabase.table("user_data")
         .select("*")
+        .eq(KOLOM_NIS_SISWA, nis_nilai())
         .order("date", desc=True)
         .execute()
     )
@@ -240,7 +255,13 @@ try:
             col2.write(f"Rp {row['money']:,.0f}")
             col3.write(row.get(KOLOM_KETERANGAN, "") or "")
             if col4.button("🗑️", key=f"del_{row['id_input']}"):
-                supabase.table("user_data").delete().eq("id_input", row["id_input"]).execute()
+                (
+                    supabase.table("user_data")
+                    .delete()
+                    .eq("id_input", row["id_input"])
+                    .eq(KOLOM_NIS_SISWA, nis_nilai())
+                    .execute()
+                )
                 st.rerun()
     else:
         st.info("Belum ada data.")

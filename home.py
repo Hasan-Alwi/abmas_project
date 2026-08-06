@@ -4,14 +4,26 @@ SMA Integral Ar-Rohmah, Malang  |  Abmas - Statistika Bisnis, Vokasi ITS
 
 HOMEPAGE
 Jalankan:  streamlit run home.py
-Butuh:  pip install streamlit plotly streamlit-authenticator
+Butuh:  pip install streamlit pandas altair supabase
+
+CATATAN PENTING
+Seluruh perpindahan halaman memakai st.page_link, bukan tag <a href>.
+Tag <a> memuat ulang browser sehingga sesi login terhapus dan siswa
+diminta masuk berulang kali.
 """
 
 import streamlit as st
-import plotly.graph_objects as go
-from utils.css import load_css
-from utils.nav import top_nav
-from utils.auth import require_login, sidebar_user, user_aktif
+
+from utils.theme import (
+    inject_css,
+    sidebar_brand,
+    navbar,
+    hero,
+    info_card,
+    section_title,
+    menu_card,
+)
+from utils.auth import require_login, sidebar_user
 
 # ----------------------------------------------------------------------------
 # KONFIGURASI HALAMAN
@@ -23,120 +35,84 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ----------------------------------------------------------------------------
-# Desain Visual
-#   Identitas: emerald pesantren + emas (barakah/sedekah) + kertas hangat.
-#   Font: Plus Jakarta Sans (buatan Indonesia) + Amiri untuk kutipan.
-# ----------------------------------------------------------------------------
-load_css()
+inject_css()
 
 # ----------------------------------------------------------------------------
-# GERBANG LOGIN  (NIS + Username, sumber akun: CSV)
-# Baris di bawah ini menghentikan halaman selama siswa belum masuk.
+# GERBANG LOGIN
+# Baris ini menghentikan halaman selama siswa belum masuk.
 # ----------------------------------------------------------------------------
 siswa = require_login()
-
-top_nav("/")
 
 # ----------------------------------------------------------------------------
 # SIDEBAR
 # ----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("""
-    <div class="sb-brand">
-      <div class="t">🌙 Keuangan Syariah</div>
-      <div class="s">SMA Integral Ar-Rohmah · Malang</div>
-    </div>
-    <div class="sb-nav">
-      <div class="active">🏠&nbsp;&nbsp;Beranda</div>
-      <a class="nav-link" href="/input_user" target="_self">
-        <div class="item">📒&nbsp;&nbsp;Pencatatan Keuangan</div>
-      </a>
-      <a class="nav-link" href="/dashboard" target="_self">
-        <div class="item">🧮&nbsp;&nbsp;Perencanaan Anggaran</div>
-      </a>
-      <a class="nav-link" href="/budget_example" target="_self">
-        <div class="item">🎯&nbsp;&nbsp;Tujuan Keuangan</div>
-      </a>
-      <a class="nav-link" href="/financial_education" target="_self">
-        <div class="item">📖&nbsp;&nbsp;Edukasi Keuangan Syariah</div>
-      </a>
-      <a class="nav-link" href="/laporan" target="_self">
-        <div class="item">📊&nbsp;&nbsp;Laporan & Visualisasi</div>
-      </a>
-    </div>
-    """, unsafe_allow_html=True)
+    sidebar_brand(active="Beranda")
+    sidebar_user()
 
-# Kartu identitas siswa + tombol keluar
-sidebar_user()
-
+navbar(active="Beranda")
 
 # ----------------------------------------------------------------------------
 # HEADER
 # ----------------------------------------------------------------------------
-st.markdown("""
-<div class="hero">
-  <div class="eyebrow"><span></span>Dashboard Perencanaan Keuangan</div>
-  <h1>Kelola Keuangan Dengan Bijak, Tumbuh Berkah Sesuai Prinsip Syariah</h1>
-  <p>Catat pemasukan, atur anggaran, rencanakan tujuan, dan tunaikan sedekah —
-  satu tempat untuk membangun kebiasaan finansial yang sehat sejak dini.</p>
-  <div class="partners">
-    <div class="chip">Statistika Bisnis · ITS</div>
-    <div class="chip">Galeri Investasi Vokasi ITS</div>
-    <div class="chip">Bursa Efek Indonesia</div>
-    <div class="chip">Sucor Sekuritas</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+hero(
+    eyebrow="Dashboard Perencanaan Keuangan",
+    title="Kelola Keuangan Dengan Bijak, Tumbuh Berkah Sesuai Prinsip Syariah",
+    lead=(
+        "Catat pemasukan, atur anggaran, rencanakan tujuan, dan tunaikan sedekah — "
+        "satu tempat untuk membangun kebiasaan finansial yang sehat sejak dini."
+    ),
+    chips=[
+        "Statistika Bisnis · ITS",
+        "Galeri Investasi Vokasi ITS",
+        "Bursa Efek Indonesia",
+        "Sucor Sekuritas",
+    ],
+)
 
-st.markdown(f"""
-<div class="welcome">
-  <div class="ico">👋</div>
-  <div>
-    <b>Assalamu'alaikum, {user_aktif().get('nama', '')}!</b>
-    <p>Mulailah mengelola uangmu dengan cara yang terstruktur dan sesuai prinsip syariah.
-    Pilih menu di samping untuk mulai mencatat dan merencanakan.</p>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
+info_card(
+    "👋",
+    f"Assalamu'alaikum, {siswa.get('username', '')}!",
+    "Mulailah mengelola uangmu dengan cara yang terstruktur dan sesuai prinsip syariah. "
+    "Pilih salah satu menu di bawah untuk mulai mencatat dan merencanakan.",
+)
 
 # ----------------------------------------------------------------------------
 # MENU UTAMA
 # ----------------------------------------------------------------------------
-st.markdown('<div class="sec-title"><h3>Menu Utama</h3><div class="rule"></div></div>',
-            unsafe_allow_html=True)
+section_title("Menu Utama")
 
-menu = [
-    ("📒", "#E2F1EA", "Input User", "Catat pemasukan & pengeluaran harianmu secara rapi.", "/input_user"),
-    ("🧮", "#E4EEFB", "Dashboard", "Atur alokasi kebutuhan, tabungan, dan sedekah.", "/dashboard"),
-    ("🎯", "#F3E7F7", "Budget Example", "Rencanakan dan pantau capaian targetmu.", "/budget_example"),
-    ("📖", "#F7EFD3", "Financal Education Syariah", "Pelajari riba, gharar, maysir, & instrumen syariah.", "/financial_education"),
+MENU = [
+    ("Input User", "Catat pemasukan & pengeluaran harianmu secara rapi.",
+     "🟨", "pages/input_user.py"),
+    ("Dashboard", "Atur alokasi kebutuhan, tabungan, dan sedekah.",
+     "📊", "pages/dashboard.py"),
+    ("Budget Example", "Rencanakan dan pantau capaian targetmu.",
+     "🎯", "pages/budget_example.py"),
+    ("Financial Education Syariah", "Pelajari riba, gharar, maysir, & instrumen syariah.",
+     "📖", "pages/edukasi.py"),
 ]
-cols = st.columns(4, gap="medium")
-for col, (icon, bg, title, desc, href) in zip(cols, menu):
-    tag = ('<span class="soon">Segera hadir</span>' if not href
-           else '<span class="soon" style="background:#0d6b4f;color:#fff">Buka halaman →</span>')
-    card = f"""
-      <div class="menu-card">
-        <div class="badge" style="background:{bg}">{icon}</div>
-        <h5>{title}</h5>
-        <p>{desc}</p>
-        {tag}
-      </div>"""
-    if href:
-        card = f'<a class="card-link" href="{href}" target="_self">{card}</a>'
-    col.markdown(card, unsafe_allow_html=True)
 
+kartu = st.columns(4, gap="medium")
+for kolom, (judul, deskripsi, ikon, path) in zip(kartu, MENU):
+    with kolom:
+        menu_card(judul, deskripsi, ikon, path)
 
 # ----------------------------------------------------------------------------
 # FOOTER
 # ----------------------------------------------------------------------------
-st.markdown("""
-<div class="quote">
-  <div class="ar">وَأَنفِقُوا۟ فِى سَبِيلِ ٱللَّهِ</div>
-  <div class="id">"Kelola keuangan dengan bijak, hindari riba, tingkatkan tabungan,
-  dan tunaikan sedekah. Keuangan yang sehat membawa keberkahan."</div>
-  <div class="src">DASHBOARD KEUANGAN SYARIAH · SMA INTEGRAL AR-ROHMAH MALANG</div>
-</div>
-""", unsafe_allow_html=True)
+st.write("")
+st.markdown(
+    '<div style="background:linear-gradient(135deg,var(--green-700) 0%,var(--green-600) 100%);'
+    'border-radius:18px;padding:34px 40px;text-align:center;color:#fff;margin-top:8px">'
+    '<div style="font-family:Amiri,\'Traditional Arabic\',serif;font-size:1.5rem;'
+    'color:var(--gold-400);margin-bottom:14px">وَأَنفِقُوا۟ فِى سَبِيلِ ٱللَّهِ</div>'
+    '<div style="font-size:15px;line-height:1.7;font-style:italic;'
+    'color:rgba(255,255,255,.9);max-width:70ch;margin:0 auto 14px">'
+    '"Kelola keuangan dengan bijak, hindari riba, tingkatkan tabungan, dan tunaikan sedekah. '
+    'Keuangan yang sehat membawa keberkahan."</div>'
+    '<div style="font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;'
+    'color:rgba(255,255,255,.7)">Dashboard Keuangan Syariah · SMA Integral Ar-Rohmah Malang</div>'
+    "</div>",
+    unsafe_allow_html=True,
+)

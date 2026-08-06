@@ -140,6 +140,15 @@ a[data-testid="stPageLink-NavLink"]:hover p { color: var(--green-700) !important
 .ks-chips { display: flex; gap: 12px; flex-wrap: wrap; }
 .ks-chip { background: rgba(255,255,255,.12); color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px 16px; border-radius: 999px; }
 
+/* ---------- kartu pintasan Menu Utama ---------- */
+.ks-menucard__ikon {
+  width: 40px; height: 40px; border-radius: 11px; background: var(--green-100);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 19px; margin-bottom: 12px;
+}
+.ks-menucard__judul { font-size: 16px; font-weight: 600; color: var(--green-900); margin-bottom: 6px; }
+.ks-menucard__teks { font-size: 13px; line-height: 1.6; color: var(--muted); min-height: 58px; }
+
 /* ---------- kartu alokasi (dipakai di dalam st.columns) ---------- */
 .ks-alloc {
   background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 100%);
@@ -314,6 +323,23 @@ def metric_card(label: str, value: str, sub: str = "", icon: str = "",
         '<div class="ks-metric__value">' + value + "</div>" + sub_html + "</div>",
         unsafe_allow_html=True,
     )
+
+
+def menu_card(judul: str, deskripsi: str, ikon: str, path: str,
+              label: str = "Buka halaman") -> None:
+    """Kartu pintasan pada Menu Utama Beranda.
+
+    Tautannya memakai st.page_link, bukan tag <a>. Tag <a> memuat ulang browser
+    sehingga sesi login terhapus dan siswa diminta masuk lagi.
+    """
+    with st.container(border=True):
+        st.markdown(
+            '<div class="ks-menucard__ikon">' + ikon + "</div>"
+            '<div class="ks-menucard__judul">' + judul + "</div>"
+            '<div class="ks-menucard__teks">' + deskripsi + "</div>",
+            unsafe_allow_html=True,
+        )
+        st.page_link(path, label=label, icon="➡️")
 
 
 def panel_header(title: str, subtitle: str = "") -> None:
