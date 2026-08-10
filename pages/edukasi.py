@@ -1,4 +1,5 @@
 import base64
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -29,7 +30,6 @@ AKAR_PROYEK = Path(__file__).resolve().parent.parent
 #  >>>>>>>>>>  TEMPAT MENGISI BERKAS PANDUAN  <<<<<<<<<<
 #
 #  Tulis path PDF relatif terhadap folder akar proyek.
-#  File sekarang tersimpan di folder data/.
 # ============================================================
 PANDUAN = {
     "judul": "Panduan Penggunaan Dashboard Keuangan Syariah",
@@ -49,36 +49,25 @@ PANDUAN = {
 # ============================================================
 #  >>>>>>>>>>  TEMPAT MENGISI VIDEO  <<<<<<<<<<
 #
-#  Ada DUA tempat yang perlu diisi:
+#  Cukup satu yang perlu diisi: tautan YouTube.
+#  Bentuk tautan apa pun bisa dipakai:
+#      https://youtu.be/xxxxxxxxxxx
+#      https://www.youtube.com/watch?v=xxxxxxxxxxx
+#      https://www.youtube.com/shorts/xxxxxxxxxxx
 #
-#  1. "file_video"   -> path file video di dalam repositori.
-#                       Contoh: "data/video/edukasi.mp4"
-#                       Biarkan "" kalau videonya hanya ada di YouTube.
-#
-#  2. "link_youtube" -> tautan lengkap video di YouTube.
-#                       Contoh: "https://www.youtube.com/watch?v=xxxxxxxxxxx"
-#                       Dipakai untuk tombol "Tonton di YouTube",
-#                       sekaligus jadi pemutar bila file_video kosong.
-#
-#  Urutan yang dipakai halaman ini:
-#     file_video ada                            -> putar dari file
-#     file_video kosong tapi link_youtube ada   -> putar dari YouTube
-#     dua-duanya kosong                         -> tampil bingkai contoh
+#  Thumbnail diambil otomatis dari YouTube berdasarkan tautan tersebut,
+#  jadi tidak perlu menyiapkan gambar sampul sendiri.
 # ============================================================
 VIDEO = {
     "id": "v1",
-    "judul": "Bagi Uang Sakumu: Aturan 50/30/20 untuk Anak Sekolah",
+    "judul": "Budgeting",
     "kategori": "Dasar Keuangan",
-    "durasi": "8:15",
+    "durasi": "3:45",
     "pemateri": "Bu Dini Safitri",
-    "ringkasan": (
-        "Cara membagi uang saku ke pos kebutuhan, keinginan, dan tabungan, "
-        "serta menempatkan sedekah sebelum pembagian dilakukan."
-    ),
+    "ringkasan": "Alasan kenapa kita harus mulai melakukan budgeting.",
 
-    # ↓↓↓ ISI DI SINI ↓↓↓
-    "file_video": "",     # contoh: "data/video/edukasi.mp4"
-    "link_youtube": "",   # contoh: "https://www.youtube.com/watch?v=xxxxxxxxxxx"
+    # ↓↓↓ ISI DI SINI — tautan YouTube ↓↓↓
+    "link_youtube": "https://youtu.be/_uII1cb4MbY",
     # ↑↑↑ ISI DI SINI ↑↑↑
 }
 
@@ -93,10 +82,10 @@ def kandidat_path(path_relatif: str):
     """Daftar lokasi yang dicoba saat mencari berkas."""
     nama = Path(path_relatif).name
     return [
-        AKAR_PROYEK / path_relatif,                 # <akar>/data/Panduan.pdf
-        Path(__file__).resolve().parent / path_relatif,  # <pages>/data/Panduan.pdf
-        Path.cwd() / path_relatif,                  # folder kerja saat dijalankan
-        AKAR_PROYEK / "data" / nama,                # cadangan: cari berdasar nama saja
+        AKAR_PROYEK / path_relatif,
+        Path(__file__).resolve().parent / path_relatif,
+        Path.cwd() / path_relatif,
+        AKAR_PROYEK / "data" / nama,
         AKAR_PROYEK / "assets" / nama,
         AKAR_PROYEK / nama,
     ]
@@ -111,14 +100,27 @@ def cari_berkas(path_relatif: str):
     return None
 
 
-def sumber_video(video):
-    """('file', path) | ('youtube', url) | (None, None)"""
-    berkas = cari_berkas(video.get("file_video", ""))
-    if berkas:
-        return "file", berkas
-    if video.get("link_youtube"):
-        return "youtube", video["link_youtube"]
-    return None, None
+def id_youtube(tautan: str) -> str:
+    """Ambil ID video dari berbagai bentuk tautan YouTube."""
+    if not tautan:
+        return ""
+    pola = [
+        r"youtu\.be/([A-Za-z0-9_-]{11})",
+        r"[?&]v=([A-Za-z0-9_-]{11})",
+        r"/embed/([A-Za-z0-9_-]{11})",
+        r"/shorts/([A-Za-z0-9_-]{11})",
+    ]
+    for p in pola:
+        cocok = re.search(p, tautan)
+        if cocok:
+            return cocok.group(1)
+    return ""
+
+
+def thumbnail_youtube(tautan: str) -> str:
+    """Alamat gambar sampul dari YouTube. hqdefault selalu tersedia."""
+    vid = id_youtube(tautan)
+    return f"https://img.youtube.com/vi/{vid}/hqdefault.jpg" if vid else ""
 
 
 def warna(video) -> str:
@@ -133,7 +135,7 @@ def lencana(teks: str, bg: str = "#14532D") -> str:
 
 
 def sampul(video, tinggi: int = 280) -> str:
-    """Bingkai pengganti saat video belum tersedia — digambar dengan SVG."""
+    """Bingkai pengganti bila tautan YouTube belum diisi."""
     return (
         f'<svg viewBox="0 0 400 225" style="width:100%;height:{tinggi}px;display:block;'
         'border-radius:12px" xmlns="http://www.w3.org/2000/svg" role="img" '
@@ -202,8 +204,6 @@ with st.container(border=True):
         )
         st.caption(f"Ukuran berkas {ukuran_mb:.1f} MB")
 
-        # Pratinjau langsung di halaman. Berkas besar sengaja dilewati
-        # supaya halaman tidak berat dibuka lewat telepon genggam.
         if ukuran_mb <= 8:
             with st.expander("Baca langsung di halaman ini"):
                 b64 = base64.b64encode(isi_pdf).decode()
@@ -232,21 +232,25 @@ with st.container(border=True):
 st.write("")
 
 # ============================================================
-# BAGIAN 2 — VIDEO EDUKASI
+# BAGIAN 2 — VIDEO EDUKASI (YouTube)
 # ============================================================
 section_title("Video Edukasi Keuangan", num="2")
 st.caption(
-    "Tonton langsung di halaman ini, atau buka di YouTube bila ingin menyimpannya "
-    "ke daftar tontonanmu."
+    "Tekan gambar sampulnya untuk menonton langsung di halaman ini, "
+    "atau buka di YouTube lewat tombol di sebelahnya."
 )
 
-jenis, sumber = sumber_video(VIDEO)
+if "edu_putar" not in st.session_state:
+    st.session_state.edu_putar = False
+
+tautan = VIDEO.get("link_youtube", "")
+gambar_sampul = thumbnail_youtube(tautan)
 
 with st.container(border=True):
     st.markdown(
         '<div style="margin-bottom:12px">'
         + lencana(VIDEO["kategori"], warna(VIDEO))
-        + ("" if jenis else "&nbsp;" + lencana("Belum ada video", "#6B7C74"))
+        + ("" if tautan else "&nbsp;" + lencana("Belum ada video", "#6B7C74"))
         + f'<div style="font-size:18px;font-weight:600;color:#0B3A26;line-height:1.35;'
         f'margin:10px 0 4px">{VIDEO["judul"]}</div>'
         f'<div style="font-size:12.5px;color:#6B7C74">{VIDEO["pemateri"]} · {VIDEO["durasi"]} menit</div>'
@@ -254,28 +258,42 @@ with st.container(border=True):
         unsafe_allow_html=True,
     )
 
-    if jenis == "file":
-        st.video(str(sumber))
-    elif jenis == "youtube":
-        st.video(sumber)
-    else:
+    if not tautan:
         st.markdown(sampul(VIDEO), unsafe_allow_html=True)
         st.caption(
-            "Video belum tersedia. Isi `file_video` atau `link_youtube` pada bagian "
-            "VIDEO di atas file `edukasi.py`."
+            "Video belum tersedia. Isi `link_youtube` pada bagian VIDEO "
+            "di atas file `edukasi.py`."
         )
+    elif st.session_state.edu_putar:
+        st.video(tautan)
+    else:
+        if gambar_sampul:
+            st.image(gambar_sampul, use_container_width=True)
+        else:
+            st.markdown(sampul(VIDEO), unsafe_allow_html=True)
 
     st.markdown(
-        f'<div style="font-size:14.5px;line-height:1.65;color:#1F2A24;margin:12px 0 4px">'
+        f'<div style="font-size:14.5px;line-height:1.65;color:#1F2A24;margin:12px 0 8px">'
         f'{VIDEO["ringkasan"]}</div>',
         unsafe_allow_html=True,
     )
 
-    if VIDEO.get("link_youtube"):
-        st.link_button("▶ Tonton di YouTube", VIDEO["link_youtube"])
+    if tautan:
+        tombol_kiri, tombol_kanan, _sisa = st.columns([1.6, 1.6, 2])
+        with tombol_kiri:
+            if st.session_state.edu_putar:
+                if st.button("✕ Tutup pemutar", key="tutup_video"):
+                    st.session_state.edu_putar = False
+                    st.rerun()
+            else:
+                if st.button("▶ Tonton di sini", key="putar_video"):
+                    st.session_state.edu_putar = True
+                    st.rerun()
+        with tombol_kanan:
+            st.link_button("↗ Buka di YouTube", tautan)
     else:
         st.button(
-            "▶ Tonton di YouTube",
+            "↗ Buka di YouTube",
             disabled=True,
             key="yt_kosong",
             help="Tautan YouTube belum diisi pada bagian VIDEO.",
